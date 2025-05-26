@@ -1,57 +1,42 @@
+import os
 import vertexai
 import streamlit as st
-from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
-import google.auth
+from vertexai.preview.generative_models import GenerativeModel
 
-# Initialize Vertex AI
+from dotenv import load_dotenv
+load_dotenv()
+
+# Get environment variables
+project_id = os.getenv("project_id")
+project_region = os.getenv("region")
+
 try:
-    credentials, project = google.auth.default()
-    vertexai.init(
-        project=project or "vertex-ai-459208",
-        location="us-central1",
-        credentials=credentials
-    )
-except Exception as e:
-    st.error(f"Authentication failed: {str(e)}")
-    st.error("Please ensure you've run:")
-    st.code("gcloud auth application-default login")
-    st.stop()
+    # Initialize Vertex AI
+    vertexai.init(project=project_id, location=project_region)
 
-# Use the correct model name
-MODEL_NAME = "gemini-1.0-pro"  # Updated to use the correct available model
+    # Use the correct model name
+    model = GenerativeModel("gemini-2.0-flash-001")
 
-def main():
-    st.set_page_config(page_title="Gemini Chat")
-    st.title(f"Gemini Chat ({MODEL_NAME})")
-    
-    if prompt := st.chat_input("Ask me anything"):
-        with st.chat_message("user"):
-            st.write(prompt)
-        
-        with st.chat_message("assistant"):
+    def user_interfaces():
+        # Set up Streamlit page
+        st.set_page_config(page_title="Gemini")
+        st.header("Gemini")
+
+        # Get user input
+        user_question = st.text_input("Ask me anything")
+
+        if user_question:
             try:
-                model = GenerativeModel(MODEL_NAME)
-                response = model.generate_content(
-                    prompt,
-                    generation_config=GenerationConfig(
-                        temperature=0.7,
-                        max_output_tokens=2048,
-                        top_p=0.8,
-                        top_k=40
-                    ),
-                    stream=True
-                )
-                
-                response_text = st.empty()
-                full_response = ""
-                for chunk in response:
-                    full_response += chunk.text
-                    response_text.markdown(full_response + "▌")
-                
-                response_text.markdown(full_response)
-                
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+                # Generate response using Gemini model
+                response = model.generate_content(user_question, stream=True)
 
-if __name__ == "__main__":
-    main()
+                # Display response
+                for res in response:
+                    st.write(res.text)
+            except Exception as e:
+                st.error(f"Error generating response: {e}")
+
+    if __name__ == "__main__":
+        user_interfaces()
+except Exception as e:
+    print(f"Error initializing Vertex AI: {e}")
